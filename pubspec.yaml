@@ -6,11 +6,10 @@ homepage: https://github.com/wanoghoco/flutter_tawkto
 environment:
   sdk: ">=3.4.0 <4.0.0"
 
-
 dependencies:
   flutter:
     sdk: flutter
-  flutter_inappwebview: ^6.0.0
+  webview_flutter: ^4.8.0
 
 dev_dependencies:
   flutter_lints: ^1.0.0

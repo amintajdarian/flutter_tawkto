@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import 'tawk_visitor.dart';
 
@@ -39,90 +37,72 @@ class Tawk extends StatefulWidget {
 }
 
 class _TawkState extends State<Tawk> {
-  late InAppWebViewController _controller;
+  late WebViewController _controller;
   bool _isLoading = true;
 
-  void _setUser(TawkVisitor visitor) {
-    final json = jsonEncode(visitor);
-    String javascriptString;
+  Future<void> _setUser({TawkVisitor? visitor}) async {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            print(progress);
+          },
+          onPageStarted: (String url) {
+            _isLoading = true;
+            setState(() {});
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false;
+            });
+            if (widget.onLoad != null) {
+              widget.onLoad!();
+            }
+          },
+          onHttpError: (HttpResponseError error) {},
+          onWebResourceError: (WebResourceError error) {},
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.directChatLink));
+    if (visitor != null) {
+      final json = jsonEncode(visitor);
+      String javascriptString;
 
-    if (Platform.isIOS) {
-      javascriptString = '''
+      if (Platform.isIOS) {
+        javascriptString = '''
         Tawk_API = Tawk_API || {};
         Tawk_API.setAttributes($json);
       ''';
-    } else {
-      javascriptString = '''
+      } else {
+        javascriptString = '''
         Tawk_API = Tawk_API || {};
         Tawk_API.onLoad = function() {
           Tawk_API.setAttributes($json);
         };
       ''';
+        await _controller.runJavaScript(javascriptString);
+      }
     }
-
-    _controller.evaluateJavascript(source: javascriptString);
   }
 
   @override
   void initState() {
+    _setUser();
     super.initState();
-  }
-
-  void init() async {
-    if (Platform.isAndroid) {
-      await AndroidInAppWebViewController.setWebContentsDebuggingEnabled(true);
-
-      var swAvailable = await AndroidWebViewFeature.isFeatureSupported(
-          AndroidWebViewFeature.SERVICE_WORKER_BASIC_USAGE);
-      var swInterceptAvailable = await AndroidWebViewFeature.isFeatureSupported(
-          AndroidWebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST);
-
-      if (swAvailable && swInterceptAvailable) {
-        AndroidServiceWorkerController serviceWorkerController =
-            AndroidServiceWorkerController.instance();
-
-        await serviceWorkerController.setServiceWorkerClient(AndroidServiceWorkerClient(
-          shouldInterceptRequest: (request) async {
-            return null;
-          },
-        ));
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        InAppWebView(
-          gestureRecognizers: {}
-            ..add(Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer())),
-          initialUrlRequest: URLRequest(url: WebUri(widget.directChatLink)),
-          onWebViewCreated: (webViewController) {
-            setState(() {
-              _controller = webViewController;
-            });
-          },
-          onLoadStop: (_, __) {
-            init();
-            if (widget.visitor != null) {
-              _setUser(widget.visitor!);
-            }
-
-            if (widget.onLoad != null) {
-              widget.onLoad!();
-            }
-
-            setState(() {
-              _isLoading = false;
-            });
-          },
+        // Replace with your WebView widget constructor
+        WebViewWidget(
+          controller: _controller,
         ),
         _isLoading
-            ? widget.placeholder ??
-                const Center(
-                  child: CircularProgressIndicator(),
-                )
+            ? widget.placeholder ?? const Center(child: CircularProgressIndicator())
             : Container(),
       ],
     );
