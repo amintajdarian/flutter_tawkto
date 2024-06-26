@@ -1,8 +1,5 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'tawk_visitor.dart';
 
@@ -37,74 +34,20 @@ class Tawk extends StatefulWidget {
 }
 
 class _TawkState extends State<Tawk> {
-  late WebViewController _controller;
-  bool _isLoading = true;
-
-  Future<void> _setUser({TawkVisitor? visitor}) async {
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (int progress) {
-            print(progress);
-          },
-          onPageStarted: (String url) {
-            _isLoading = true;
-            setState(() {});
-          },
-          onPageFinished: (String url) {
-            setState(() {
-              _isLoading = false;
-            });
-            if (widget.onLoad != null) {
-              widget.onLoad!();
-            }
-          },
-          onHttpError: (HttpResponseError error) {},
-          onWebResourceError: (WebResourceError error) {},
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.directChatLink));
-    if (visitor != null) {
-      final json = jsonEncode(visitor);
-      String javascriptString;
-
-      if (Platform.isIOS) {
-        javascriptString = '''
-        Tawk_API = Tawk_API || {};
-        Tawk_API.setAttributes($json);
-      ''';
-      } else {
-        javascriptString = '''
-        Tawk_API = Tawk_API || {};
-        Tawk_API.onLoad = function() {
-          Tawk_API.setAttributes($json);
-        };
-      ''';
-        await _controller.runJavaScript(javascriptString);
-      }
-    }
-  }
-
   @override
   void initState() {
-    _setUser();
+    _launchUrl(widget.directChatLink);
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Replace with your WebView widget constructor
-        WebViewWidget(
-          controller: _controller,
-        ),
-        _isLoading
-            ? widget.placeholder ?? const Center(child: CircularProgressIndicator())
-            : Container(),
-      ],
-    );
+    return Container();
+  }
+}
+
+Future<void> _launchUrl(String url) async {
+  if (!await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView)) {
+    throw Exception('Could not launch $url');
   }
 }
